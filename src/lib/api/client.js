@@ -1,7 +1,8 @@
+
 import axios from 'axios'
 
 const apiClient = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api',
+  baseURL: `${import.meta.env.VITE_API_URL}/api`,
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -11,9 +12,11 @@ const apiClient = axios.create({
 // Ajoute automatiquement le token d'authentification à chaque requête
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('mon_commerce_token')
+
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+
   return config
 })
 
@@ -25,8 +28,10 @@ apiClient.interceptors.response.use(
       localStorage.removeItem('mon_commerce_token')
       window.location.href = '/connexion'
     }
+
     return Promise.reject(error)
   }
 )
 
 export default apiClient
+
