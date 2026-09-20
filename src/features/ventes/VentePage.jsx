@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Plus, Minus, Trash2, Check, WifiOff, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, Check, WifiOff, ChevronLeft, ChevronRight, ShoppingCart } from 'lucide-react'
 import apiClient from '../../lib/api/client'
 import { enregistrerVente, mettreEnCacheProduits, recupererProduitsEnCache } from '../../lib/offline/syncManager'
 
@@ -24,6 +24,7 @@ export default function VentePage() {
   const [confirmation, setConfirmation] = useState(null)
   const [erreur, setErreur] = useState('')
   const [modeHorsLigne, setModeHorsLigne] = useState(false)
+  const [panierOuvertMobile, setPanierOuvertMobile] = useState(false)
 
   useEffect(() => {
     apiClient.get('/categories').then((res) => setCategories(res.data)).catch(() => {})
@@ -80,6 +81,7 @@ export default function VentePage() {
   }
 
   const total = panier.reduce((somme, l) => somme + l.produit.prix_vente * l.quantite, 0)
+  const nombreArticlesPanier = panier.reduce((n, l) => n + l.quantite, 0)
 
   async function validerVente() {
     if (panier.length === 0) return
@@ -102,6 +104,7 @@ export default function VentePage() {
       })
       setPanier([])
       setModePaiement('especes')
+      setPanierOuvertMobile(false)
     } catch (err) {
       setErreur(err.response?.data?.message || 'Une erreur est survenue.')
     } finally {
@@ -135,21 +138,91 @@ export default function VentePage() {
     )
   }
 
+  const contenuPanier = (
+    <>
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {panier.length === 0 ? (
+          <p className="text-ink-faint text-sm">Aucun article sélectionné.</p>
+        ) : (
+          panier.map((ligne) => (
+            <div key={ligne.produit.id} className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-ink truncate">{ligne.produit.nom}</p>
+                <p className="text-xs text-ink-faint">{ligne.produit.prix_vente} FCFA / unité</p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button onClick={() => changerQuantite(ligne.produit.id, -1)} className="w-7 h-7 rounded-full bg-paper flex items-center justify-center hover:bg-black/5">
+                  <Minus size={12} />
+                </button>
+                <span className="text-sm w-5 text-center">{ligne.quantite}</span>
+                <button onClick={() => changerQuantite(ligne.produit.id, 1)} className="w-7 h-7 rounded-full bg-paper flex items-center justify-center hover:bg-black/5">
+                  <Plus size={12} />
+                </button>
+                <button onClick={() => retirerDuPanier(ligne.produit.id)} className="text-ink-faint hover:text-warning ml-1">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="p-4 border-t border-black/5 space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          {MODES_PAIEMENT.map((mode) => (
+            <button
+              key={mode.valeur}
+              onClick={() => setModePaiement(mode.valeur)}
+              className={`text-xs font-medium py-2 rounded-lg border transition ${
+                modePaiement === mode.valeur
+                  ? 'text-white border-transparent'
+                  : 'bg-surface text-ink-soft border-black/10 hover:border-black/20'
+              }`}
+              style={
+                modePaiement === mode.valeur
+                  ? { background: 'linear-gradient(135deg, #C9A96E, #9A8050)' }
+                  : undefined
+              }
+            >
+              {mode.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex justify-between items-center text-sm">
+          <span className="text-ink-soft">Total</span>
+          <span className="font-display text-lg font-semibold text-ink">{total} FCFA</span>
+        </div>
+
+        {erreur && <p className="text-warning text-xs">{erreur}</p>}
+
+        <button
+          onClick={validerVente}
+          disabled={panier.length === 0 || enregistrement}
+          className="w-full text-white font-medium py-2.5 rounded-xl disabled:opacity-40 transition hover:opacity-90"
+          style={{ background: 'linear-gradient(135deg, #172554, #101828)' }}
+        >
+          {enregistrement ? 'Enregistrement...' : 'Valider la vente'}
+        </button>
+      </div>
+    </>
+  )
+
   return (
-    <div className="flex h-full">
+    <div className="flex flex-col lg:flex-row h-full relative">
       {/* Colonne produits */}
-      <div className="flex-1 flex flex-col h-full">
-        <div className="p-6 lg:p-8 pb-0">
+      <div className="flex-1 flex flex-col h-full min-w-0">
+        <div className="p-4 lg:p-8 pb-0 lg:pb-0">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <h1 className="font-display text-2xl font-semibold text-ink">Nouvelle vente</h1>
+              <h1 className="font-display text-xl lg:text-2xl font-semibold text-ink">Nouvelle vente</h1>
               {modeHorsLigne && (
                 <span className="flex items-center gap-1 text-xs font-medium text-accent-600 bg-accent-100 px-2 py-1 rounded-full">
                   <WifiOff size={12} /> Hors ligne
                 </span>
               )}
             </div>
-            <Link to="/ventes/historique" className="text-sm text-accent-600 font-medium hover:underline">
+            <Link to="/ventes/historique" className="text-sm text-accent-600 font-medium hover:underline hidden sm:block">
               Voir l'historique
             </Link>
           </div>
@@ -161,11 +234,9 @@ export default function VentePage() {
               onChange={(e) => setRecherche(e.target.value)}
               placeholder="Rechercher un produit ou un code-barres..."
               className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-black/10 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500"
-              autoFocus
             />
           </div>
 
-          {/* Filtres rapides par catégorie */}
           {categories.length > 0 && (
             <div className="flex items-center gap-2 overflow-x-auto pb-4 -mx-1 px-1">
               <button
@@ -197,7 +268,8 @@ export default function VentePage() {
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 lg:px-8 pb-4">
+        {/* Espace en bas pour ne pas que la barre panier mobile cache les derniers produits */}
+        <div className="flex-1 overflow-y-auto px-4 lg:px-8 pb-24 lg:pb-4">
           {produits.length === 0 ? (
             <p className="text-ink-faint text-sm py-8 text-center">Aucun produit ne correspond.</p>
           ) : (
@@ -217,7 +289,6 @@ export default function VentePage() {
             </div>
           )}
 
-          {/* Pagination compacte, pensée pour une boutique à gros catalogue */}
           {meta && meta.last_page > 1 && (
             <div className="flex items-center justify-center gap-3 mt-5">
               <button
@@ -240,78 +311,41 @@ export default function VentePage() {
         </div>
       </div>
 
-      {/* Colonne panier */}
-      <div className="w-80 bg-surface border-l border-black/5 flex flex-col shrink-0">
+      {/* Panier — colonne fixe sur desktop, tiroir depuis le bas sur mobile */}
+      <div className="hidden lg:flex w-80 bg-surface border-l border-black/5 flex-col shrink-0">
         <div className="p-4 border-b border-black/5">
           <h2 className="font-display font-semibold text-ink">Panier</h2>
         </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {panier.length === 0 ? (
-            <p className="text-ink-faint text-sm">Aucun article sélectionné.</p>
-          ) : (
-            panier.map((ligne) => (
-              <div key={ligne.produit.id} className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-ink truncate">{ligne.produit.nom}</p>
-                  <p className="text-xs text-ink-faint">{ligne.produit.prix_vente} FCFA / unité</p>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button onClick={() => changerQuantite(ligne.produit.id, -1)} className="w-6 h-6 rounded-full bg-paper flex items-center justify-center hover:bg-black/5">
-                    <Minus size={12} />
-                  </button>
-                  <span className="text-sm w-5 text-center">{ligne.quantite}</span>
-                  <button onClick={() => changerQuantite(ligne.produit.id, 1)} className="w-6 h-6 rounded-full bg-paper flex items-center justify-center hover:bg-black/5">
-                    <Plus size={12} />
-                  </button>
-                  <button onClick={() => retirerDuPanier(ligne.produit.id)} className="text-ink-faint hover:text-warning ml-1">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        <div className="p-4 border-t border-black/5 space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            {MODES_PAIEMENT.map((mode) => (
-              <button
-                key={mode.valeur}
-                onClick={() => setModePaiement(mode.valeur)}
-                className={`text-xs font-medium py-2 rounded-lg border transition ${
-                  modePaiement === mode.valeur
-                    ? 'text-white border-transparent'
-                    : 'bg-surface text-ink-soft border-black/10 hover:border-black/20'
-                }`}
-                style={
-                  modePaiement === mode.valeur
-                    ? { background: 'linear-gradient(135deg, #C9A96E, #9A8050)' }
-                    : undefined
-                }
-              >
-                {mode.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-ink-soft">Total</span>
-            <span className="font-display text-lg font-semibold text-ink">{total} FCFA</span>
-          </div>
-
-          {erreur && <p className="text-warning text-xs">{erreur}</p>}
-
-          <button
-            onClick={validerVente}
-            disabled={panier.length === 0 || enregistrement}
-            className="w-full text-white font-medium py-2.5 rounded-xl disabled:opacity-40 transition hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #172554, #101828)' }}
-          >
-            {enregistrement ? 'Enregistrement...' : 'Valider la vente'}
-          </button>
-        </div>
+        {contenuPanier}
       </div>
+
+      {/* Barre panier flottante sur mobile */}
+      {!panierOuvertMobile && (
+        <button
+          onClick={() => setPanierOuvertMobile(true)}
+          className="lg:hidden fixed bottom-4 left-4 right-4 flex items-center justify-between text-white rounded-2xl px-5 py-3.5 shadow-lg z-30"
+          style={{ background: 'linear-gradient(135deg, #172554, #101828)' }}
+        >
+          <span className="flex items-center gap-2 text-sm font-medium">
+            <ShoppingCart size={18} />
+            {nombreArticlesPanier > 0 ? `${nombreArticlesPanier} article(s)` : 'Panier vide'}
+          </span>
+          <span className="font-display font-semibold">{total} FCFA</span>
+        </button>
+      )}
+
+      {/* Tiroir panier plein écran sur mobile */}
+      {panierOuvertMobile && (
+        <div className="lg:hidden fixed inset-0 bg-surface z-40 flex flex-col">
+          <div className="flex items-center justify-between p-4 border-b border-black/5">
+            <h2 className="font-display font-semibold text-ink">Panier</h2>
+            <button onClick={() => setPanierOuvertMobile(false)} className="text-ink-soft text-sm font-medium">
+              Retour aux produits
+            </button>
+          </div>
+          {contenuPanier}
+        </div>
+      )}
     </div>
   )
 }

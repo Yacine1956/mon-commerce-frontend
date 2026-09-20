@@ -81,7 +81,8 @@ export default function VentesHistoriquePage() {
             description="Essaie d'élargir les dates, ou reviens ici après ta première vente."
           />
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-paper text-ink-soft text-left">
               <tr>
                 <th className="px-4 py-3 font-medium">Date</th>
@@ -122,6 +123,7 @@ export default function VentesHistoriquePage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
