@@ -9,6 +9,7 @@ const LABELS_PAIEMENT = {
   especes: 'Espèces',
   wave: 'Wave',
   orange_money: 'Orange Money',
+  credit: 'Crédit',
   autre: 'Autre',
 }
 

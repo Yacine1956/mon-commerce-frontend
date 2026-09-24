@@ -15,6 +15,7 @@ import useThemeStore from './lib/theme/themeStore'
 import RapportsPage from './features/rapports/RapportsPage'
 import ParametresPage from './features/parametres/ParametresPage'
 import StockPage from './features/stock/StockPage'
+import ClientsPage from './features/clients/ClientsPage'
 
 function RouteProtegee({ children }) {
   const { isAuthenticated, isLoading } = useAuthStore()
@@ -54,7 +55,7 @@ export default function App() {
         <Route path="/ventes/historique" element={<RouteProtegee><VentesHistoriquePage /></RouteProtegee>} />
         <Route path="/produits" element={<RouteProtegee><ProduitsPage /></RouteProtegee>} />
         <Route path="/stock" element={<RouteProtegee><StockPage /></RouteProtegee>} />
-        <Route path="/clients" element={<RouteProtegee><PageAVenir titre="Clients" /></RouteProtegee>} />
+        <Route path="/clients" element={<RouteProtegee><ClientsPage /></RouteProtegee>} />
         <Route path="/fournisseurs" element={<RouteProtegee><PageAVenir titre="Fournisseurs" /></RouteProtegee>} />
         <Route path="/depenses" element={<RouteProtegee><DepensesPage /></RouteProtegee>} />
         <Route path="/rapports" element={<RouteProtegee><RapportsPage /></RouteProtegee>} />
