@@ -1,8 +1,25 @@
+
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Plus, Minus, Trash2, Check, WifiOff, ChevronLeft, ChevronRight, ShoppingCart, UserPlus } from 'lucide-react'
+import {
+  Search,
+  Plus,
+  Minus,
+  Trash2,
+  Check,
+  WifiOff,
+  ChevronLeft,
+  ChevronRight,
+  ShoppingCart,
+  UserPlus,
+  History,
+} from 'lucide-react'
 import apiClient from '../../lib/api/client'
-import { enregistrerVente, mettreEnCacheProduits, recupererProduitsEnCache } from '../../lib/offline/syncManager'
+import {
+  enregistrerVente,
+  mettreEnCacheProduits,
+  recupererProduitsEnCache,
+} from '../../lib/offline/syncManager'
 
 const MODES_PAIEMENT = [
   { valeur: 'especes', label: 'Espèces' },
@@ -35,28 +52,38 @@ export default function VentePage() {
   const [nouveauClientOuvert, setNouveauClientOuvert] = useState(false)
 
   useEffect(() => {
-    apiClient.get('/categories').then((res) => setCategories(res.data)).catch(() => {})
+    apiClient
+      .get('/categories')
+      .then((res) => setCategories(res.data))
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
     const delai = setTimeout(async () => {
       const params = { page, per_page: 24 }
+
       if (recherche) params.recherche = recherche
       if (categorieId) params.categorie_id = categorieId
 
       try {
         const res = await apiClient.get('/produits', { params })
+
         setProduits(res.data.data)
         setMeta(res.data.meta)
         setModeHorsLigne(false)
-        if (!recherche && !categorieId && page === 1) mettreEnCacheProduits(res.data.data)
+
+        if (!recherche && !categorieId && page === 1) {
+          mettreEnCacheProduits(res.data.data)
+        }
       } catch {
         const produitsCache = await recupererProduitsEnCache(recherche)
+
         setProduits(produitsCache)
         setMeta(null)
         setModeHorsLigne(true)
       }
     }, 250)
+
     return () => clearTimeout(delai)
   }, [recherche, categorieId, page])
 
@@ -69,11 +96,19 @@ export default function VentePage() {
       setResultatsClients([])
       return
     }
+
     const delai = setTimeout(() => {
-      apiClient.get('/clients', { params: { recherche: rechercheClient, per_page: 5 } })
+      apiClient
+        .get('/clients', {
+          params: {
+            recherche: rechercheClient,
+            per_page: 5,
+          },
+        })
         .then((res) => setResultatsClients(res.data.data))
         .catch(() => setResultatsClients([]))
     }, 250)
+
     return () => clearTimeout(delai)
   }, [rechercheClient, modePaiement])
 
@@ -86,6 +121,7 @@ export default function VentePage() {
 
   function changerModePaiement(valeur) {
     setModePaiement(valeur)
+
     if (valeur !== 'credit') {
       setClientId(null)
       setClientNom('')
@@ -95,11 +131,15 @@ export default function VentePage() {
   function ajouterAuPanier(produit) {
     setPanier((actuel) => {
       const existant = actuel.find((l) => l.produit.id === produit.id)
+
       if (existant) {
         return actuel.map((l) =>
-          l.produit.id === produit.id ? { ...l, quantite: l.quantite + 1 } : l
+          l.produit.id === produit.id
+            ? { ...l, quantite: l.quantite + 1 }
+            : l
         )
       }
+
       return [...actuel, { produit, quantite: 1 }]
     })
   }
@@ -107,24 +147,39 @@ export default function VentePage() {
   function changerQuantite(produitId, delta) {
     setPanier((actuel) =>
       actuel
-        .map((l) => (l.produit.id === produitId ? { ...l, quantite: l.quantite + delta } : l))
+        .map((l) =>
+          l.produit.id === produitId
+            ? { ...l, quantite: l.quantite + delta }
+            : l
+        )
         .filter((l) => l.quantite > 0)
     )
   }
 
   function retirerDuPanier(produitId) {
-    setPanier((actuel) => actuel.filter((l) => l.produit.id !== produitId))
+    setPanier((actuel) =>
+      actuel.filter((l) => l.produit.id !== produitId)
+    )
   }
 
-  const total = panier.reduce((somme, l) => somme + l.produit.prix_vente * l.quantite, 0)
-  const nombreArticlesPanier = panier.reduce((n, l) => n + l.quantite, 0)
+  const total = panier.reduce(
+    (somme, l) => somme + l.produit.prix_vente * l.quantite,
+    0
+  )
+
+  const nombreArticlesPanier = panier.reduce(
+    (n, l) => n + l.quantite,
+    0
+  )
 
   async function validerVente() {
     if (panier.length === 0) return
+
     if (modePaiement === 'credit' && !clientId) {
       setErreur('Choisis un client pour une vente à crédit.')
       return
     }
+
     setErreur('')
     setEnregistrement(true)
 
@@ -133,23 +188,32 @@ export default function VentePage() {
       mode_paiement: modePaiement,
       ...(modePaiement === 'credit' && { client_id: clientId }),
       vendue_le: new Date().toISOString(),
-      lignes: panier.map((l) => ({ produit_id: l.produit.id, quantite: l.quantite })),
+      lignes: panier.map((l) => ({
+        produit_id: l.produit.id,
+        quantite: l.quantite,
+      })),
     }
 
     try {
       const resultat = await enregistrerVente(payload)
+
       setConfirmation({
         total,
         nombreArticles: panier.length,
-        synchroniseeImmediatement: resultat.synchroniseeImmediatement,
+        synchroniseeImmediatement:
+          resultat.synchroniseeImmediatement,
       })
+
       setPanier([])
       setModePaiement('especes')
       setClientId(null)
       setClientNom('')
       setPanierOuvertMobile(false)
     } catch (err) {
-      setErreur(err.response?.data?.message || 'Une erreur est survenue.')
+      setErreur(
+        err.response?.data?.message ||
+          'Une erreur est survenue.'
+      )
     } finally {
       setEnregistrement(false)
     }
@@ -162,17 +226,28 @@ export default function VentePage() {
           <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-positive-soft">
             <Check size={28} className="text-positive" />
           </div>
-          <h2 className="font-display text-xl font-semibold text-ink mb-1">Vente enregistrée</h2>
-          <p className="text-ink-soft mb-2">{confirmation.total} FCFA — {confirmation.nombreArticles} article(s)</p>
+
+          <h2 className="font-display text-xl font-semibold text-ink mb-1">
+            Vente enregistrée
+          </h2>
+
+          <p className="text-ink-soft mb-2">
+            {confirmation.total} FCFA — {confirmation.nombreArticles} article(s)
+          </p>
+
           {!confirmation.synchroniseeImmediatement && (
             <p className="text-accent-600 text-sm mb-4 flex items-center justify-center gap-1.5">
-              <WifiOff size={14} /> Enregistrée hors ligne, sera synchronisée automatiquement
+              <WifiOff size={14} />
+              Enregistrée hors ligne, sera synchronisée automatiquement
             </p>
           )}
+
           <button
             onClick={() => setConfirmation(null)}
             className="text-white text-sm font-medium px-5 py-2.5 rounded-xl transition hover:opacity-90 mt-2"
-            style={{ background: 'linear-gradient(135deg, #C9A96E, #9A8050)' }}
+            style={{
+              background: 'linear-gradient(135deg, #C9A96E, #9A8050)',
+            }}
           >
             Nouvelle vente
           </button>
@@ -185,23 +260,54 @@ export default function VentePage() {
     <>
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {panier.length === 0 ? (
-          <p className="text-ink-faint text-sm">Aucun article sélectionné.</p>
+          <p className="text-ink-faint text-sm">
+            Aucun article sélectionné.
+          </p>
         ) : (
           panier.map((ligne) => (
-            <div key={ligne.produit.id} className="flex items-center justify-between gap-2">
+            <div
+              key={ligne.produit.id}
+              className="flex items-center justify-between gap-2"
+            >
               <div className="min-w-0">
-                <p className="text-sm font-medium text-ink truncate">{ligne.produit.nom}</p>
-                <p className="text-xs text-ink-faint">{ligne.produit.prix_vente} FCFA / unité</p>
+                <p className="text-sm font-medium text-ink truncate">
+                  {ligne.produit.nom}
+                </p>
+
+                <p className="text-xs text-ink-faint">
+                  {ligne.produit.prix_vente} FCFA / unité
+                </p>
               </div>
+
               <div className="flex items-center gap-1.5 shrink-0">
-                <button onClick={() => changerQuantite(ligne.produit.id, -1)} className="w-7 h-7 rounded-full bg-paper flex items-center justify-center hover:bg-black/5">
+                <button
+                  onClick={() =>
+                    changerQuantite(ligne.produit.id, -1)
+                  }
+                  className="w-7 h-7 rounded-full bg-paper flex items-center justify-center hover:bg-black/5"
+                >
                   <Minus size={12} />
                 </button>
-                <span className="text-sm w-5 text-center">{ligne.quantite}</span>
-                <button onClick={() => changerQuantite(ligne.produit.id, 1)} className="w-7 h-7 rounded-full bg-paper flex items-center justify-center hover:bg-black/5">
+
+                <span className="text-sm w-5 text-center">
+                  {ligne.quantite}
+                </span>
+
+                <button
+                  onClick={() =>
+                    changerQuantite(ligne.produit.id, 1)
+                  }
+                  className="w-7 h-7 rounded-full bg-paper flex items-center justify-center hover:bg-black/5"
+                >
                   <Plus size={12} />
                 </button>
-                <button onClick={() => retirerDuPanier(ligne.produit.id)} className="text-ink-faint hover:text-warning ml-1">
+
+                <button
+                  onClick={() =>
+                    retirerDuPanier(ligne.produit.id)
+                  }
+                  className="text-ink-faint hover:text-warning ml-1"
+                >
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -215,7 +321,9 @@ export default function VentePage() {
           {MODES_PAIEMENT.map((mode) => (
             <button
               key={mode.valeur}
-              onClick={() => changerModePaiement(mode.valeur)}
+              onClick={() =>
+                changerModePaiement(mode.valeur)
+              }
               className={`text-xs font-medium py-2 rounded-lg border transition ${
                 modePaiement === mode.valeur
                   ? 'text-white border-transparent'
@@ -223,7 +331,10 @@ export default function VentePage() {
               }`}
               style={
                 modePaiement === mode.valeur
-                  ? { background: 'linear-gradient(135deg, #C9A96E, #9A8050)' }
+                  ? {
+                      background:
+                        'linear-gradient(135deg, #C9A96E, #9A8050)',
+                    }
                   : undefined
               }
             >
@@ -237,10 +348,17 @@ export default function VentePage() {
             {clientId ? (
               <div className="flex items-center justify-between">
                 <span className="text-sm text-ink">
-                  Client : <span className="font-medium">{clientNom}</span>
+                  Client :{' '}
+                  <span className="font-medium">
+                    {clientNom}
+                  </span>
                 </span>
+
                 <button
-                  onClick={() => { setClientId(null); setClientNom('') }}
+                  onClick={() => {
+                    setClientId(null)
+                    setClientNom('')
+                  }}
                   className="text-xs text-ink-faint hover:text-warning"
                 >
                   Changer
@@ -249,10 +367,16 @@ export default function VentePage() {
             ) : (
               <>
                 <div className="relative">
-                  <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint" />
+                  <Search
+                    size={14}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint"
+                  />
+
                   <input
                     value={rechercheClient}
-                    onChange={(e) => setRechercheClient(e.target.value)}
+                    onChange={(e) =>
+                      setRechercheClient(e.target.value)
+                    }
                     placeholder="Rechercher un client..."
                     className="w-full pl-8 pr-2 py-1.5 rounded-lg border border-black/10 text-xs focus:outline-none focus:ring-2 focus:ring-accent-500"
                   />
@@ -263,20 +387,30 @@ export default function VentePage() {
                     {resultatsClients.map((c) => (
                       <button
                         key={c.id}
-                        onClick={() => selectionnerClient(c)}
+                        onClick={() =>
+                          selectionnerClient(c)
+                        }
                         className="w-full text-left text-xs px-2 py-1.5 rounded-lg hover:bg-paper text-ink"
                       >
-                        {c.nom} {c.telephone && <span className="text-ink-faint">— {c.telephone}</span>}
+                        {c.nom}{' '}
+                        {c.telephone && (
+                          <span className="text-ink-faint">
+                            — {c.telephone}
+                          </span>
+                        )}
                       </button>
                     ))}
                   </div>
                 )}
 
                 <button
-                  onClick={() => setNouveauClientOuvert(true)}
+                  onClick={() =>
+                    setNouveauClientOuvert(true)
+                  }
                   className="flex items-center gap-1 text-xs text-accent-600 font-medium mt-2 hover:underline"
                 >
-                  <UserPlus size={12} /> Nouveau client
+                  <UserPlus size={12} />
+                  Nouveau client
                 </button>
               </>
             )}
@@ -285,18 +419,30 @@ export default function VentePage() {
 
         <div className="flex justify-between items-center text-sm">
           <span className="text-ink-soft">Total</span>
-          <span className="font-display text-lg font-semibold text-ink">{total} FCFA</span>
+
+          <span className="font-display text-lg font-semibold text-ink">
+            {total} FCFA
+          </span>
         </div>
 
-        {erreur && <p className="text-warning text-xs">{erreur}</p>}
+        {erreur && (
+          <p className="text-warning text-xs">
+            {erreur}
+          </p>
+        )}
 
         <button
           onClick={validerVente}
           disabled={panier.length === 0 || enregistrement}
           className="w-full text-white font-medium py-2.5 rounded-xl disabled:opacity-40 transition hover:opacity-90"
-          style={{ background: 'linear-gradient(135deg, #172554, #101828)' }}
+          style={{
+            background:
+              'linear-gradient(135deg, #172554, #101828)',
+          }}
         >
-          {enregistrement ? 'Enregistrement...' : 'Valider la vente'}
+          {enregistrement
+            ? 'Enregistrement...'
+            : 'Valider la vente'}
         </button>
       </div>
 
@@ -317,25 +463,43 @@ export default function VentePage() {
       {/* Colonne produits */}
       <div className="flex-1 flex flex-col h-full min-w-0">
         <div className="p-4 lg:p-8 pb-0 lg:pb-0">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <h1 className="font-display text-xl lg:text-2xl font-semibold text-ink">Nouvelle vente</h1>
+
+          {/* En-tête avec bouton Historique */}
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <h1 className="font-display text-xl lg:text-2xl font-semibold text-ink truncate">
+                Nouvelle vente
+              </h1>
+
               {modeHorsLigne && (
-                <span className="flex items-center gap-1 text-xs font-medium text-accent-600 bg-accent-100 px-2 py-1 rounded-full">
-                  <WifiOff size={12} /> Hors ligne
+                <span className="hidden sm:flex items-center gap-1 text-xs font-medium text-accent-600 bg-accent-100 px-2 py-1 rounded-full shrink-0">
+                  <WifiOff size={12} />
+                  Hors ligne
                 </span>
               )}
             </div>
-            <Link to="/ventes/historique" className="text-sm text-accent-600 font-medium hover:underline hidden sm:block">
-              Voir l'historique
+
+            {/* Bouton compact visible sur mobile */}
+            <Link
+              to="/ventes/historique"
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-black/10 bg-surface text-xs sm:text-sm font-medium text-ink-soft hover:text-accent-600 hover:border-accent-500/30 hover:bg-paper transition"
+            >
+              <History size={15} />
+              <span>Historique</span>
             </Link>
           </div>
 
           <div className="relative mb-3 max-w-sm">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint" />
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint"
+            />
+
             <input
               value={recherche}
-              onChange={(e) => setRecherche(e.target.value)}
+              onChange={(e) =>
+                setRecherche(e.target.value)
+              }
               placeholder="Rechercher un produit ou un code-barres..."
               className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-black/10 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500"
             />
@@ -350,10 +514,18 @@ export default function VentePage() {
                     ? 'text-white border-transparent'
                     : 'bg-surface text-ink-soft border-black/10 hover:border-black/20'
                 }`}
-                style={categorieId === null ? { background: 'linear-gradient(135deg, #172554, #101828)' } : undefined}
+                style={
+                  categorieId === null
+                    ? {
+                        background:
+                          'linear-gradient(135deg, #172554, #101828)',
+                      }
+                    : undefined
+                }
               >
                 Tous
               </button>
+
               {categories.map((cat) => (
                 <button
                   key={cat.id}
@@ -363,7 +535,14 @@ export default function VentePage() {
                       ? 'text-white border-transparent'
                       : 'bg-surface text-ink-soft border-black/10 hover:border-black/20'
                   }`}
-                  style={categorieId === cat.id ? { background: 'linear-gradient(135deg, #172554, #101828)' } : undefined}
+                  style={
+                    categorieId === cat.id
+                      ? {
+                          background:
+                            'linear-gradient(135deg, #172554, #101828)',
+                        }
+                      : undefined
+                  }
                 >
                   {cat.nom}
                 </button>
@@ -375,19 +554,31 @@ export default function VentePage() {
         {/* Espace en bas pour ne pas que la barre panier mobile cache les derniers produits */}
         <div className="flex-1 overflow-y-auto px-4 lg:px-8 pb-24 lg:pb-4">
           {produits.length === 0 ? (
-            <p className="text-ink-faint text-sm py-8 text-center">Aucun produit ne correspond.</p>
+            <p className="text-ink-faint text-sm py-8 text-center">
+              Aucun produit ne correspond.
+            </p>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
               {produits.map((produit) => (
                 <button
                   key={produit.id}
-                  onClick={() => ajouterAuPanier(produit)}
+                  onClick={() =>
+                    ajouterAuPanier(produit)
+                  }
                   disabled={produit.stock_actuel <= 0}
                   className="bg-surface border border-black/5 rounded-2xl p-4 text-left hover:border-accent-400 hover:shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <p className="font-medium text-ink text-sm mb-1 line-clamp-1">{produit.nom}</p>
-                  <p className="text-ink-soft text-sm">{produit.prix_vente} FCFA</p>
-                  <p className="text-xs text-ink-faint mt-1">Stock : {produit.stock_actuel}</p>
+                  <p className="font-medium text-ink text-sm mb-1 line-clamp-1">
+                    {produit.nom}
+                  </p>
+
+                  <p className="text-ink-soft text-sm">
+                    {produit.prix_vente} FCFA
+                  </p>
+
+                  <p className="text-xs text-ink-faint mt-1">
+                    Stock : {produit.stock_actuel}
+                  </p>
                 </button>
               ))}
             </div>
@@ -396,15 +587,25 @@ export default function VentePage() {
           {meta && meta.last_page > 1 && (
             <div className="flex items-center justify-center gap-3 mt-5">
               <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() =>
+                  setPage((p) => Math.max(1, p - 1))
+                }
                 disabled={page <= 1}
                 className="p-2 rounded-lg border border-black/10 disabled:opacity-40 hover:bg-paper transition"
               >
                 <ChevronLeft size={16} />
               </button>
-              <span className="text-xs text-ink-faint">Page {meta.current_page} / {meta.last_page}</span>
+
+              <span className="text-xs text-ink-faint">
+                Page {meta.current_page} / {meta.last_page}
+              </span>
+
               <button
-                onClick={() => setPage((p) => Math.min(meta.last_page, p + 1))}
+                onClick={() =>
+                  setPage((p) =>
+                    Math.min(meta.last_page, p + 1)
+                  )
+                }
                 disabled={page >= meta.last_page}
                 className="p-2 rounded-lg border border-black/10 disabled:opacity-40 hover:bg-paper transition"
               >
@@ -418,23 +619,37 @@ export default function VentePage() {
       {/* Panier — colonne fixe sur desktop, tiroir depuis le bas sur mobile */}
       <div className="hidden lg:flex w-80 bg-surface border-l border-black/5 flex-col shrink-0">
         <div className="p-4 border-b border-black/5">
-          <h2 className="font-display font-semibold text-ink">Panier</h2>
+          <h2 className="font-display font-semibold text-ink">
+            Panier
+          </h2>
         </div>
+
         {contenuPanier}
       </div>
 
       {/* Barre panier flottante sur mobile */}
       {!panierOuvertMobile && (
         <button
-          onClick={() => setPanierOuvertMobile(true)}
+          onClick={() =>
+            setPanierOuvertMobile(true)
+          }
           className="lg:hidden fixed bottom-4 left-4 right-4 flex items-center justify-between text-white rounded-2xl px-5 py-3.5 shadow-lg z-30"
-          style={{ background: 'linear-gradient(135deg, #172554, #101828)' }}
+          style={{
+            background:
+              'linear-gradient(135deg, #172554, #101828)',
+          }}
         >
           <span className="flex items-center gap-2 text-sm font-medium">
             <ShoppingCart size={18} />
-            {nombreArticlesPanier > 0 ? `${nombreArticlesPanier} article(s)` : 'Panier vide'}
+
+            {nombreArticlesPanier > 0
+              ? `${nombreArticlesPanier} article(s)`
+              : 'Panier vide'}
           </span>
-          <span className="font-display font-semibold">{total} FCFA</span>
+
+          <span className="font-display font-semibold">
+            {total} FCFA
+          </span>
         </button>
       )}
 
@@ -442,11 +657,20 @@ export default function VentePage() {
       {panierOuvertMobile && (
         <div className="lg:hidden fixed inset-0 bg-surface z-40 flex flex-col">
           <div className="flex items-center justify-between p-4 border-b border-black/5">
-            <h2 className="font-display font-semibold text-ink">Panier</h2>
-            <button onClick={() => setPanierOuvertMobile(false)} className="text-ink-soft text-sm font-medium">
+            <h2 className="font-display font-semibold text-ink">
+              Panier
+            </h2>
+
+            <button
+              onClick={() =>
+                setPanierOuvertMobile(false)
+              }
+              className="text-ink-soft text-sm font-medium"
+            >
               Retour aux produits
             </button>
           </div>
+
           {contenuPanier}
         </div>
       )}
@@ -466,13 +690,22 @@ function ModalNouveauClientRapide({ onFerme, onCree }) {
 
   async function handleSubmit(e) {
     e.preventDefault()
+
     setErreur('')
     setEnregistrement(true)
+
     try {
-      const res = await apiClient.post('/clients', { nom, telephone: telephone || null })
+      const res = await apiClient.post('/clients', {
+        nom,
+        telephone: telephone || null,
+      })
+
       onCree(res.data)
     } catch (err) {
-      setErreur(err.response?.data?.message || 'Une erreur est survenue.')
+      setErreur(
+        err.response?.data?.message ||
+          'Une erreur est survenue.'
+      )
     } finally {
       setEnregistrement(false)
     }
@@ -481,14 +714,26 @@ function ModalNouveauClientRapide({ onFerme, onCree }) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-surface rounded-2xl w-full max-w-sm p-6 relative">
-        <button onClick={onFerme} className="absolute top-4 right-4 text-ink-faint hover:text-ink">
+        <button
+          onClick={onFerme}
+          className="absolute top-4 right-4 text-ink-faint hover:text-ink"
+        >
           ✕
         </button>
-        <h2 className="font-display text-lg font-semibold text-ink mb-5">Nouveau client</h2>
 
-        <form onSubmit={handleSubmit} className="space-y-3.5">
+        <h2 className="font-display text-lg font-semibold text-ink mb-5">
+          Nouveau client
+        </h2>
+
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-3.5"
+        >
           <div>
-            <label className="block text-sm font-medium text-ink mb-1">Nom</label>
+            <label className="block text-sm font-medium text-ink mb-1">
+              Nom
+            </label>
+
             <input
               value={nom}
               onChange={(e) => setNom(e.target.value)}
@@ -497,28 +742,45 @@ function ModalNouveauClientRapide({ onFerme, onCree }) {
               autoFocus
             />
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-ink mb-1">Téléphone (optionnel)</label>
+            <label className="block text-sm font-medium text-ink mb-1">
+              Téléphone (optionnel)
+            </label>
+
             <input
               type="tel"
               value={telephone}
-              onChange={(e) => setTelephone(e.target.value)}
+              onChange={(e) =>
+                setTelephone(e.target.value)
+              }
               className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500"
             />
           </div>
 
-          {erreur && <p className="text-warning text-sm">{erreur}</p>}
+          {erreur && (
+            <p className="text-warning text-sm">
+              {erreur}
+            </p>
+          )}
 
           <button
             type="submit"
             disabled={enregistrement}
             className="w-full text-white text-sm font-medium py-2.5 rounded-xl disabled:opacity-50 transition hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #172554, #101828)' }}
+            style={{
+              background:
+                'linear-gradient(135deg, #172554, #101828)',
+            }}
           >
-            {enregistrement ? 'Création...' : 'Créer et sélectionner'}
+            {enregistrement
+              ? 'Création...'
+              : 'Créer et sélectionner'}
           </button>
         </form>
       </div>
     </div>
   )
 }
+
+
