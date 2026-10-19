@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -17,6 +16,12 @@ import { motion } from 'framer-motion'
 
 import apiClient from '../../lib/api/client'
 import useAuthStore from '../../lib/auth/authStore'
+
+/* =========================================================
+STOCKAGE (logo, photos...)
+========================================================= */
+
+const BASE_URL_STOCKAGE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000') + '/storage/'
 
 /* =========================================================
    ANIMATIONS
@@ -74,7 +79,7 @@ function Sparkline({ type = 'up', dark = false }) {
 }
 
 /* =========================================================
-   DASHBOARD
+DASHBOARD
 ========================================================= */
 
 export default function DashboardPage() {
@@ -201,9 +206,18 @@ export default function DashboardPage() {
                   Bienvenue Chez
                 </p>
 
-                <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight break-words">
-                  {boutique?.nom || 'Ma boutique'}
-                </h1>
+                <div className="flex items-center gap-3">
+                  {boutique?.logo_url && (
+                    <img
+                      src={BASE_URL_STOCKAGE + boutique.logo_url}
+                      alt="Logo"
+                      className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl object-cover shrink-0 border border-white/10"
+                    />
+                  )}
+                  <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight break-words">
+                    {boutique?.nom || 'Ma boutique'}
+                  </h1>
+                </div>
 
                 <p className="text-xs sm:text-sm text-white/55 mt-2 max-w-[290px] sm:max-w-none">
                   Voici un aperçu de votre activité aujourd'hui.
@@ -902,4 +916,3 @@ export default function DashboardPage() {
     </div>
   )
 }
-

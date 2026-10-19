@@ -17,6 +17,7 @@ import ParametresPage from './features/parametres/ParametresPage'
 import StockPage from './features/stock/StockPage'
 import ClientsPage from './features/clients/ClientsPage'
 import FournisseursPage from './features/fournisseurs/FournisseursPage'
+import ImportProduitsPage from './features/produits/ImportProduitsPage'
 
 function RouteProtegee({ children }) {
   const { isAuthenticated, isLoading } = useAuthStore()
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="/rapports" element={<RouteProtegee><RapportsPage /></RouteProtegee>} />
         <Route path="/assistant" element={<RouteProtegee><PageAVenir titre="Assistant IA" /></RouteProtegee>} />
         <Route path="/parametres" element={<RouteProtegee><ParametresPage /></RouteProtegee>} />
+        <Route path="/produits/import" element={<RouteProtegee><ImportProduitsPage /></RouteProtegee>} />
       </Routes>
     </BrowserRouter>
   )

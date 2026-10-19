@@ -21,6 +21,11 @@ import {
   recupererProduitsEnCache,
 } from '../../lib/offline/syncManager'
 
+import { ScanLine } from 'lucide-react'
+import BarcodeScanner from '../../components/BarcodeScanner'
+
+const BASE_URL_STOCKAGE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000') + '/storage/'
+
 const MODES_PAIEMENT = [
   { valeur: 'especes', label: 'Espèces' },
   { valeur: 'wave', label: 'Wave' },
@@ -43,6 +48,7 @@ export default function VentePage() {
   const [erreur, setErreur] = useState('')
   const [modeHorsLigne, setModeHorsLigne] = useState(false)
   const [panierOuvertMobile, setPanierOuvertMobile] = useState(false)
+  const [scannerOuvert, setScannerOuvert] = useState(false)
 
   // Sélection du client, utilisée uniquement quand modePaiement === 'credit'
   const [clientId, setClientId] = useState(null)
@@ -133,6 +139,12 @@ export default function VentePage() {
       const existant = actuel.find((l) => l.produit.id === produit.id)
 
       if (existant) {
+        const stockDisponible = Number(produit.stock_actuel ?? 0)
+
+        if (existant.quantite >= stockDisponible) {
+          return actuel
+        }
+
         return actuel.map((l) =>
           l.produit.id === produit.id
             ? { ...l, quantite: l.quantite + 1 }
@@ -144,14 +156,36 @@ export default function VentePage() {
     })
   }
 
+  async function gererCodeScanne(codeBarres) {
+    setScannerOuvert(false)
+    try {
+      const res = await apiClient.get(`/produits/scan/${codeBarres}`)
+      ajouterAuPanier(res.data.data ?? res.data)
+    } catch {
+      alert("Aucun produit trouvé pour ce code-barres.")
+    }
+  }
+
   function changerQuantite(produitId, delta) {
     setPanier((actuel) =>
       actuel
-        .map((l) =>
-          l.produit.id === produitId
-            ? { ...l, quantite: l.quantite + delta }
-            : l
-        )
+        .map((l) => {
+          if (l.produit.id !== produitId) {
+            return l
+          }
+
+          const nouvelleQuantite = l.quantite + delta
+          const stockDisponible = Number(l.produit.stock_actuel ?? 0)
+
+          if (delta > 0 && nouvelleQuantite > stockDisponible) {
+            return l
+          }
+
+          return {
+            ...l,
+            quantite: nouvelleQuantite,
+          }
+        })
         .filter((l) => l.quantite > 0)
     )
   }
@@ -199,7 +233,7 @@ export default function VentePage() {
 
       setConfirmation({
         total,
-        nombreArticles: panier.length,
+        nombreArticles: nombreArticlesPanier,
         synchroniseeImmediatement:
           resultat.synchroniseeImmediatement,
       })
@@ -281,6 +315,7 @@ export default function VentePage() {
 
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
+                  type="button"
                   onClick={() =>
                     changerQuantite(ligne.produit.id, -1)
                   }
@@ -294,15 +329,22 @@ export default function VentePage() {
                 </span>
 
                 <button
+                  type="button"
                   onClick={() =>
                     changerQuantite(ligne.produit.id, 1)
                   }
-                  className="w-7 h-7 rounded-full bg-paper flex items-center justify-center hover:bg-black/5"
+                  disabled={
+                    ligne.quantite >=
+                    Number(ligne.produit.stock_actuel ?? 0)
+                  }
+                  className="w-7 h-7 rounded-full bg-paper flex items-center justify-center hover:bg-black/5 disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Stock maximum atteint"
                 >
                   <Plus size={12} />
                 </button>
 
                 <button
+                  type="button"
                   onClick={() =>
                     retirerDuPanier(ligne.produit.id)
                   }
@@ -320,6 +362,7 @@ export default function VentePage() {
         <div className="grid grid-cols-2 gap-2">
           {MODES_PAIEMENT.map((mode) => (
             <button
+              type="button"
               key={mode.valeur}
               onClick={() =>
                 changerModePaiement(mode.valeur)
@@ -355,6 +398,7 @@ export default function VentePage() {
                 </span>
 
                 <button
+                  type="button"
                   onClick={() => {
                     setClientId(null)
                     setClientNom('')
@@ -386,6 +430,7 @@ export default function VentePage() {
                   <div className="mt-1.5 space-y-0.5">
                     {resultatsClients.map((c) => (
                       <button
+                        type="button"
                         key={c.id}
                         onClick={() =>
                           selectionnerClient(c)
@@ -404,6 +449,7 @@ export default function VentePage() {
                 )}
 
                 <button
+                  type="button"
                   onClick={() =>
                     setNouveauClientOuvert(true)
                   }
@@ -489,20 +535,30 @@ export default function VentePage() {
             </Link>
           </div>
 
-          <div className="relative mb-3 max-w-sm">
-            <Search
-              size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint"
-            />
+          <div className="flex items-center gap-2 mb-3 max-w-xl">
+            <div className="relative flex-1 min-w-0">
+              <Search
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint"
+              />
 
-            <input
-              value={recherche}
-              onChange={(e) =>
-                setRecherche(e.target.value)
-              }
-              placeholder="Rechercher un produit ou un code-barres..."
-              className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-black/10 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500"
-            />
+              <input
+                value={recherche}
+                onChange={(e) => setRecherche(e.target.value)}
+                placeholder="Rechercher un produit ou un code-barres..."
+                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-black/10 bg-surface text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent-500 transition"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setScannerOuvert(true)}
+              className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl border border-black/10 bg-surface text-ink-soft hover:border-accent-500/40 hover:text-accent-600 hover:bg-paper transition"
+              title="Scanner un code-barres"
+              aria-label="Scanner un code-barres"
+            >
+              <ScanLine size={18} />
+            </button>
           </div>
 
           {categories.length > 0 && (
@@ -568,9 +624,12 @@ export default function VentePage() {
                   disabled={produit.stock_actuel <= 0}
                   className="bg-surface border border-black/5 rounded-2xl p-4 text-left hover:border-accent-400 hover:shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <p className="font-medium text-ink text-sm mb-1 line-clamp-1">
-                    {produit.nom}
-                  </p>
+                  {produit.photo_url && (
+                    <div className="w-full aspect-square rounded-lg bg-paper overflow-hidden mb-2">
+                      <img src={BASE_URL_STOCKAGE + produit.photo_url} alt="" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <p className="font-medium text-ink text-sm mb-1 line-clamp-1">{produit.nom}</p>
 
                   <p className="text-ink-soft text-sm">
                     {produit.prix_vente} FCFA
@@ -587,6 +646,7 @@ export default function VentePage() {
           {meta && meta.last_page > 1 && (
             <div className="flex items-center justify-center gap-3 mt-5">
               <button
+                type="button"
                 onClick={() =>
                   setPage((p) => Math.max(1, p - 1))
                 }
@@ -601,6 +661,7 @@ export default function VentePage() {
               </span>
 
               <button
+                type="button"
                 onClick={() =>
                   setPage((p) =>
                     Math.min(meta.last_page, p + 1)
@@ -630,6 +691,7 @@ export default function VentePage() {
       {/* Barre panier flottante sur mobile */}
       {!panierOuvertMobile && (
         <button
+          type="button"
           onClick={() =>
             setPanierOuvertMobile(true)
           }
@@ -662,6 +724,7 @@ export default function VentePage() {
             </h2>
 
             <button
+              type="button"
               onClick={() =>
                 setPanierOuvertMobile(false)
               }
@@ -673,6 +736,13 @@ export default function VentePage() {
 
           {contenuPanier}
         </div>
+      )}
+
+      {scannerOuvert && (
+        <BarcodeScanner
+          onFerme={() => setScannerOuvert(false)}
+          onDetecte={gererCodeScanne}
+        />
       )}
     </div>
   )
@@ -691,16 +761,24 @@ function ModalNouveauClientRapide({ onFerme, onCree }) {
   async function handleSubmit(e) {
     e.preventDefault()
 
+    const nomNettoye = nom.trim()
+    const telephoneNettoye = telephone.trim()
+
+    if (!nomNettoye) {
+      setErreur('Le nom du client est obligatoire.')
+      return
+    }
+
     setErreur('')
     setEnregistrement(true)
 
     try {
       const res = await apiClient.post('/clients', {
-        nom,
-        telephone: telephone || null,
+        nom: nomNettoye,
+        telephone: telephoneNettoye || null,
       })
 
-      onCree(res.data)
+      onCree(res.data.data ?? res.data)
     } catch (err) {
       setErreur(
         err.response?.data?.message ||
@@ -715,6 +793,7 @@ function ModalNouveauClientRapide({ onFerme, onCree }) {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-surface rounded-2xl w-full max-w-sm p-6 relative">
         <button
+          type="button"
           onClick={onFerme}
           className="absolute top-4 right-4 text-ink-faint hover:text-ink"
         >
@@ -781,6 +860,7 @@ function ModalNouveauClientRapide({ onFerme, onCree }) {
       </div>
     </div>
   )
+
 }
 
 

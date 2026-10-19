@@ -6,6 +6,10 @@ import Pagination from '../../components/Pagination'
 import EtatVide from '../../components/EtatVide'
 import SquelletteTableau from '../../components/SquelletteTableau'
 import useAuthStore from '../../lib/auth/authStore'
+import { Link } from 'react-router-dom'
+import { Upload } from 'lucide-react'
+
+const BASE_URL_STOCKAGE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000') + '/storage/'
 
 export default function ProduitsPage() {
   const { user } = useAuthStore()
@@ -58,13 +62,21 @@ export default function ProduitsPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="font-display text-2xl font-semibold text-ink">Produits</h1>
         {estGestionnaire && (
-          <button
-            onClick={ouvrirAjout}
-            className="flex items-center gap-2 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #C9A96E, #9A8050)' }}
-          >
-            <Plus size={16} /> Ajouter un produit
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/produits/import"
+              className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl border border-black/10 text-ink-soft hover:border-black/20 transition"
+            >
+              <Upload size={16} /> Importer
+            </Link>
+            <button
+              onClick={ouvrirAjout}
+              className="flex items-center gap-2 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition hover:opacity-90"
+              style={{ background: 'linear-gradient(135deg, #C9A96E, #9A8050)' }}
+            >
+              <Plus size={16} /> Ajouter un produit
+            </button>
+          </div>
         )}
       </div>
 
@@ -92,6 +104,7 @@ export default function ProduitsPage() {
           <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-paper text-ink-soft text-left">
               <tr>
+                <th className="px-4 py-3"></th>
                 <th className="px-4 py-3 font-medium">Nom</th>
                 <th className="px-4 py-3 font-medium">Catégorie</th>
                 <th className="px-4 py-3 font-medium text-right">Prix achat</th>
@@ -107,6 +120,14 @@ export default function ProduitsPage() {
                   onClick={estGestionnaire ? () => ouvrirEdition(produit) : undefined}
                   className={estGestionnaire ? 'hover:bg-paper cursor-pointer transition' : ''}
                 >
+
+                  <td className="px-4 py-3.5">
+                    <div className="w-9 h-9 rounded-lg bg-paper overflow-hidden shrink-0">
+                      {produit.photo_url ? (
+                        <img src={BASE_URL_STOCKAGE + produit.photo_url} alt="" className="w-full h-full object-cover" />
+                      ) : null}
+                    </div>
+                  </td>
                   <td className="px-4 py-3.5 font-medium text-ink">{produit.nom}</td>
                   <td className="px-4 py-3.5 text-ink-soft">{produit.categorie?.nom ?? '—'}</td>
                   <td className="px-4 py-3.5 text-right text-ink-soft">{produit.prix_achat} FCFA</td>
